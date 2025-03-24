@@ -1,7 +1,23 @@
 # PumpSwapAMM
 
-**This module allows making Buy and Sell transactions using Solana & Solders**, the current state of the module aims for an app integration rather than a standalone CLI application. 
-The data necessary for making the swap can be fetched on the fly by for example capturing relevant logs such as mint creation, pool creation, buys and sells via a `logsSubscribe` Solana's Standard Websocket method.
+**Trade tokens on the PumpSwap AMM using Python, Solders and Solana.**
+
+All you need is a pool address, and eventually token decimals if mint wasn't created on Pump.fun (but via metaplex for example).
+The module implements ways to fetch pool keys and price or account reserves.
+
+**Tip wallet**
+
+`3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`
+
+**Thanks 💙**
+
+**Telegram: [FLOCK4H.CAVE](https://t.me/flock4hcave)**
+
+**Discord: [FLOCK4H.CAVE](https://discord.gg/thREUECv2a)**
+
+**Telegram private handle: @dubskii420**
+
+<img src="https://github.com/user-attachments/assets/d655c153-0056-47fc-8314-6f919f18ed6d" width="256" />
 
 # Setup
 
