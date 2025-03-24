@@ -65,28 +65,28 @@ Returns:
 <h4>Examples</h4>
 
 ```python
-    # 1) Initialize PumpSwap client
-    client = PumpSwap(async_client, signer=async_payer_keypair)
+  # 1) Initialize PumpSwap client
+  client = PumpSwap(async_client, signer=async_payer_keypair)
 
-    # Example pool: https://solscan.io/account/9NXBQSt63ZZcw3e4DhbDPGP2FjnwW3aDJWEXRwcGEsN3
-    pool = "9NXBQSt63ZZcw3e4DhbDPGP2FjnwW3aDJWEXRwcGEsN3"
+  # Example pool: https://solscan.io/account/9NXBQSt63ZZcw3e4DhbDPGP2FjnwW3aDJWEXRwcGEsN3
+  pool = "9NXBQSt63ZZcw3e4DhbDPGP2FjnwW3aDJWEXRwcGEsN3"
 
-    # 2) Fetch pool data
-    pool_keys = await fetch_pool(pool, async_client) 
-    base_price, base_balance_tokens, quote_balance_sol = await fetch_pool_base_price(pool_keys, async_client)
-    decimals_base = 6 # Pump.fun mints got 6 decimals, otherwise it can be read from Pool Creation, or Mint Creation transaction
+  # 2) Fetch pool data
+  pool_keys = await fetch_pool(pool, async_client) 
+  base_price, base_balance_tokens, quote_balance_sol = await fetch_pool_base_price(pool_keys, async_client)
+  decimals_base = 6 # Pump.fun mints got 6 decimals, otherwise it can be read from Pool Creation, or Mint Creation transaction
 
-    # 3) Prepare pool data
-    pool_data = {
-        "pool_pubkey": Pubkey.from_string(pool),
-        "token_base": Pubkey.from_string(pool_keys["base_mint"]),
-        "token_quote": Pubkey.from_string(pool_keys["quote_mint"]),
-        "pool_base_token_account": pool_keys["pool_base_token_account"],
-        "pool_quote_token_account": pool_keys["pool_quote_token_account"],
-        "base_balance_tokens": base_balance_tokens,
-        "quote_balance_sol": quote_balance_sol,
-        "decimals_base": decimals_base
-    }
+  # 3) Prepare pool data
+  pool_data = {
+      "pool_pubkey": Pubkey.from_string(pool),
+      "token_base": Pubkey.from_string(pool_keys["base_mint"]),
+      "token_quote": Pubkey.from_string(pool_keys["quote_mint"]),
+      "pool_base_token_account": pool_keys["pool_base_token_account"],
+      "pool_quote_token_account": pool_keys["pool_quote_token_account"],
+      "base_balance_tokens": base_balance_tokens,
+      "quote_balance_sol": quote_balance_sol,
+      "decimals_base": decimals_base
+  }
 
   await client.buy(
       pool_data,
