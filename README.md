@@ -60,6 +60,16 @@ Args:
     fee_sol: float
 Returns:
     bool: True if successful, False otherwise
+
+(function) def fetch_pool(
+    pool: str,
+    async_client: AsyncClient
+) -> Coroutine[Any, Any, dict[str, Any]]
+
+(function) def fetch_pool_base_price(
+    pool_keys: Any,
+    async_client: Any
+) -> Coroutine[Any, Any, tuple[Decimal, Any, Any] | None]
 ```
 
 <h4>Examples</h4>
