@@ -5,15 +5,11 @@
 All you need is a pool address, and eventually token decimals if mint wasn't created on Pump.fun (but via metaplex for example).
 The module implements ways to fetch pool keys and price or account reserves.
 
-**Tip wallet**
-
-`3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`
+Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`
 
 **Thanks 💙**
 
-**Telegram: [FLOCK4H.CAVE](https://t.me/flock4hcave)**
-
-**Discord: [FLOCK4H.CAVE](https://discord.gg/thREUECv2a)**
+**Discord: [FLOCK4H.CAVE](https://discord.gg/thREUECv2a)**, **Telegram: [FLOCK4H.CAVE](https://t.me/flock4hcave)**
 
 **Telegram private handle: @dubskii420**
 
