@@ -16,6 +16,7 @@ from spl.token.instructions import (
     close_account,
     CloseAccountParams,
 )
+from construct import Struct as cStruct, Byte, Int16ul, Int64ul, Bytes
 
 UNIT_COMPUTE_BUDGET = 120_000
 WSOL_MINT           = Pubkey.from_string("So11111111111111111111111111111111111111112")
@@ -75,6 +76,44 @@ def compute_unit_price_from_total_fee(
     lamports_per_cu = total_lams / float(compute_units)
     micro_lamports_per_cu = lamports_per_cu * 1_000_000
     return int(micro_lamports_per_cu)
+
+PumpSwapPoolState = cStruct(
+    "pool_bump" / Byte,
+    "index" / Int16ul,
+    "creator" / Bytes(32),
+    "base_mint" / Bytes(32),
+    "quote_mint" / Bytes(32),
+    "lp_mint" / Bytes(32),
+    "pool_base_token_account" / Bytes(32),
+    "pool_quote_token_account" / Bytes(32),
+    "lp_supply" / Int64ul,
+)
+
+def convert_pool_keys(container):
+    return {
+        "pool_bump": container.pool_bump,
+        "index": container.index,
+        "creator": str(Pubkey.from_bytes(container.creator)),
+        "base_mint": str(Pubkey.from_bytes(container.base_mint)),
+        "quote_mint": str(Pubkey.from_bytes(container.quote_mint)),
+        "lp_mint": str(Pubkey.from_bytes(container.lp_mint)),
+        "pool_base_token_account": str(Pubkey.from_bytes(container.pool_base_token_account)),
+        "pool_quote_token_account": str(Pubkey.from_bytes(container.pool_quote_token_account)),
+        "lp_supply": container.lp_supply
+    }
+
+async def fetch_pool(pool: str, async_client: AsyncClient):
+    pool = Pubkey.from_string(pool)
+
+    resp = await async_client.get_account_info_json_parsed(pool, commitment=Processed)
+    if not resp or not resp.value or not resp.value.data:
+        raise Exception("Invalid account response")
+
+    raw_data = resp.value.data
+    parsed = PumpSwapPoolState.parse(raw_data[8:]) # ad
+    parsed = convert_pool_keys(parsed)
+
+    return parsed
 
 class PumpSwap:
     def __init__(self, async_client: AsyncClient, signer: Keypair):
