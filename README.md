@@ -69,7 +69,7 @@ Returns:
   client = PumpSwap(async_client, signer=async_payer_keypair)
 
   # Example pool: https://solscan.io/account/9NXBQSt63ZZcw3e4DhbDPGP2FjnwW3aDJWEXRwcGEsN3
-  pool = "9NXBQSt63ZZcw3e4DhbDPGP2FjnwW3aDJWEXRwcGEsN3"
+  pool = "9NXBQSt63ZZcw3e4DhbDPGP2FjnwW3aDJWEXRwcGEsN3" # Change this to the token pool address you want to buy
 
   # 2) Fetch pool data
   pool_keys = await fetch_pool(pool, async_client) 
