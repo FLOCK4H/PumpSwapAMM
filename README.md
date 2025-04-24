@@ -38,12 +38,11 @@ Use command `pumpswap` alone to get into CLI, but first grab your Bunny.net (if 
 then make sure to create .env file with these fields:
 
 ```
-# Create .env file in your current working dir and add the following:
-# ACCESS_KEY=bunny-access-key
-# STORAGE_ZONE_NAME=bunny-storage-zone-name
-# PRIVATE_KEY=your-solana-private-key
-# RPC_URL="https://mainnet.helius-rpc.com/?api-key=your-api-key"
-# REGION= 
+ACCESS_KEY=bunny-access-key
+STORAGE_ZONE_NAME=bunny-storage-zone-name
+PRIVATE_KEY=your-solana-private-key
+RPC_URL="https://mainnet.helius-rpc.com/?api-key=your-api-key"
+REGION= 
 ```
 
 # Usage
