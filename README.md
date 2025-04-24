@@ -45,9 +45,9 @@ Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`, **Thanks 💙**
 
 **How to setup:**
 
-`pip install PumpSwapAMM` for quick install of the CLI + library
-Use command `pumpswap` alone to get into CLI, but first grab your Bunny.net (if creating tokens) credentials, 
-then make sure to create .env file with these fields:
+1. `$ pip install PumpSwapAMM` for quick install of the CLI + library
+2. Upload metadata for the token yourself/ use existing, or setup an account on Bunny.net (1$/month) and create a storage zone
+3. Make sure to create .env file with these fields:
 
 ```
 ACCESS_KEY=bunny-access-key
