@@ -60,11 +60,13 @@ for log_name in suppress_logs:
 # PRIVATE_KEY=your-solana-private-key
 # RPC_URL="https://mainnet.helius-rpc.com/?api-key=your-api-key"
 # REGION=
+# PULL_ZONE_NAME=your-pull-zone-name e.g. flockahh
 
 BUNNY_UPLOADER = BunnyCDNUploader(
     region=os.getenv("REGION"),  # e.g. 'uk' or leave blank for default global
     storage_zone_name=os.getenv("STORAGE_ZONE_NAME"),
     access_key=os.getenv("ACCESS_KEY"),
+    pull_zone_name=os.getenv("PULL_ZONE_NAME")  # e.g. 'your-pull-zone-name'
 )
 PRIV_KEY = os.getenv("PRIVATE_KEY")
 RPC_URL = os.getenv("RPC_URL")
