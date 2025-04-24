@@ -28,6 +28,34 @@ Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`, **Thanks 💙**
   $ pip install .
 ```
 
+**CLI & Bunny.net Setup**
+
+1. Create a storage zone
+
+![image](https://github.com/user-attachments/assets/bb365937-5f4d-4099-bc71-db1bbf1891be)
+
+2. Create + Connect Pull Zone
+
+![fsdfsdfsdfsdfsdfsd](https://github.com/user-attachments/assets/4517f7b8-06fd-4127-9911-9eb83fdf21c9)
+
+3. Save information for later:
+- Pull zone name
+- FPT & API Access -> Password
+- Storage zone name
+
+4. Create `.env` file with these fields:
+
+```
+ACCESS_KEY=bunny-password-key
+STORAGE_ZONE_NAME=bunny-storage-zone-name
+PRIVATE_KEY=your-solana-private-key
+RPC_URL="https://mainnet.helius-rpc.com/?api-key=your-api-key"
+REGION=
+PULL_ZONE_NAME=yourzonename
+```
+
+5. Run `pumpswap` command where you've created the `.env` file
+
 # [NEW] PumpSwapCLI
 
 <div align="center">
@@ -42,21 +70,6 @@ Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`, **Thanks 💙**
 - Deposit
 - Create_Pool
 3. Trade on PumpSwap: buy and sell tokens
-
-**How to setup:**
-
-1. `$ pip install PumpSwapAMM` for quick install of the CLI + library
-2. Upload metadata for the token yourself/ use existing, or setup an account on Bunny.net (1$/month) and create a storage zone + pull zone
-3. Make sure to create .env file with these fields:
-
-```
-ACCESS_KEY=bunny-access-key
-STORAGE_ZONE_NAME=bunny-storage-zone-name
-PRIVATE_KEY=your-solana-private-key
-RPC_URL="https://mainnet.helius-rpc.com/?api-key=your-api-key"
-REGION=
-PULL_ZONE_NAME=yourzonename
-```
 
 # Usage
 
