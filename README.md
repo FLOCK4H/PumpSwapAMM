@@ -10,6 +10,10 @@ The module implements ways to **fetch pool keys and price or account reserves, d
 
 Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`, **Thanks 💙**
 
+https://github.com/user-attachments/assets/50336975-fcab-4e15-b021-62be9ba1ab12
+
+📹 [Watch the demo video](https://github.com/user-attachments/assets/50336975-fcab-4e15-b021-62be9ba1ab12)
+
 ## Contact & Support
 
 **Discord: [FLOCK4H.CAVE](https://discord.gg/thREUECv2a)**, **Telegram: [FLOCK4H.CAVE](https://t.me/flock4hcave)**
