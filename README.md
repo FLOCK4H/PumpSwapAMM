@@ -25,18 +25,18 @@ Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`
 
 # [NEW] PumpSwapCLI
 
-1. Create tokens via Metaplex, mint & modify authorities via user-friendly CLI application
-2. Deploy and manage PumpSwap Liquidity Pools including:
- - Withdraw
- - Deposit
- - Create_Pool
-3. Trade on PumpSwap: buy and sell tokens
-
 <div align="center">
   
 ![gdfgdgfdgdfgdf](https://github.com/user-attachments/assets/548575ae-714e-43c4-b717-f8d2fc768ee1)
 
 </div>
+
+1. Create tokens via Metaplex, mint & modify authorities via user-friendly CLI application
+2. Deploy and manage PumpSwap Liquidity Pools including:
+- Withdraw
+- Deposit
+- Create_Pool
+3. Trade on PumpSwap: buy and sell tokens
 
 **How to setup:**
 
