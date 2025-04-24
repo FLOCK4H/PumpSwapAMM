@@ -23,6 +23,29 @@ Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`
   $ pip install .
 ```
 
+# NEW
+
+<div align="center">
+  
+![gdfgdgfdgdfgdf](https://github.com/user-attachments/assets/548575ae-714e-43c4-b717-f8d2fc768ee1)
+
+</div>
+
+**How to setup:**
+
+`pip install PumpSwapAMM` for quick install of the CLI + library
+Use command `pumpswap` alone to get into CLI, but first grab your Bunny.net (if creating tokens) credentials, 
+then make sure to create .env file with these fields:
+
+# Create .env file in your current working dir and add the following:
+# ACCESS_KEY=bunny-access-key
+# STORAGE_ZONE_NAME=bunny-storage-zone-name
+# PRIVATE_KEY=your-solana-private-key
+# RPC_URL="https://mainnet.helius-rpc.com/?api-key=your-api-key"
+# REGION= 
+
+
+
 # Usage
 
 **Check out the `example.py` script for a plug&play implementation**
