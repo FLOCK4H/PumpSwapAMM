@@ -186,6 +186,7 @@ class PumpSwapCLI:
                 return None
             symbol = cinput(f"Enter the symbol of the token (same as in metadata)")
             description = cinput(f"Enter the description of the token (same as in metadata)")
+            file_path = ""
             is_meta_uploaded = True
         else:
             wprint(f"Unknown option: {c}")
