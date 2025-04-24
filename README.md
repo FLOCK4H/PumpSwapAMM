@@ -16,6 +16,8 @@ Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`, **Thanks 💙**
 
 **Most convenient:**
 
+<h6>If module or a command can't be found, try installing with administrative rights</h6>
+
 ```
   $ pip install PumpSwapAMM
 ```
