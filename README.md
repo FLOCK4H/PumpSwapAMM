@@ -53,7 +53,9 @@ Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`, **Thanks 💙**
 - FPT & API Access -> Password
 - Storage zone name
 
-4. Create `.env` file with these fields:
+4. Run `pumpswap` command
+
+5. Create `.env` file with below schema or you will be prompted to enter credentials at app's start 
 
 ```
 ACCESS_KEY=bunny-password-key
@@ -64,7 +66,11 @@ REGION=
 PULL_ZONE_NAME=yourzonename
 ```
 
-5. Run `pumpswap` command where you've created the `.env` file
+You can leave all Bunny related fields empty if you're not creating tokens/ don't want to use Bunny:
+- ACCESS_KEY
+- STORAGE_ZONE_NAME
+- REGION
+- PULL_ZONE_NAME
 
 # [NEW] PumpSwapCLI
 
