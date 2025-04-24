@@ -4,7 +4,7 @@
 
 - Trade, create, and manage - Pools (aka Pairs), and Tokens.
 - Grind addresses ending with `...pump` for your tokens.
-- Support for Bunny.net API to store metadata off-chain.
+- Support for Bunny.net API to store images and metadata off-chain.
 
 The module implements ways to **fetch pool keys and price or account reserves, deriving addresses, finding pools and more...**
 
