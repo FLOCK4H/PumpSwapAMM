@@ -1,13 +1,10 @@
 # PumpSwapAMM
 
-**Python SDK + optional CLI for Pump.fun’s PumpSwap AMM on Solana**
+**Python SDK + CLI client for PumpSwap AMM on Solana.**
+Trade, create, and manage - Pools, and Tokens.
+The module implements ways to fetch pool keys and price or account reserves, deriving addresses, finding pools and more...
 
-Trade, create, and manage - Pools and Tokens.
-The module implements ways to fetch pool keys and price or account reserves.
-
-Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`
-
-**Thanks 💙**
+Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`, **Thanks 💙**
 
 **Discord: [FLOCK4H.CAVE](https://discord.gg/thREUECv2a)**, **Telegram: [FLOCK4H.CAVE](https://t.me/flock4hcave)**
 
