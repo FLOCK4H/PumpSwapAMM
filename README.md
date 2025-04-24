@@ -17,6 +17,14 @@ Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`
 
 # Setup
 
+**Most convenient:**
+
+```
+  $ pip install PumpSwapAMM
+```
+
+**For development:**
+
 ```
   $ git clone https://github.com/FLOCK4H/PumpSwapAMM
   $ cd PumpSwapAMM
