@@ -168,9 +168,7 @@ Returns:
   )
 ```
 
-`example_pool.py`
-
-```
+```python
 import asyncio
 from solders.pubkey import Pubkey # type: ignore
 from solana.rpc.async_api import AsyncClient
