@@ -1,9 +1,11 @@
 # PumpSwapAMM
 
 **Python SDK + CLI client for PumpSwap AMM on Solana.**
-Trade, create, and manage - Pools (aka Pairs), and Tokens.
-Grind addresses ending with `...pump` for your tokens.
-Support for Bunny.net API to store metadata off-chain.
+
+- Trade, create, and manage - Pools (aka Pairs), and Tokens.
+- Grind addresses ending with `...pump` for your tokens.
+- Support for Bunny.net API to store metadata off-chain.
+
 The module implements ways to **fetch pool keys and price or account reserves, deriving addresses, finding pools and more...**
 
 Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`, **Thanks 💙**
