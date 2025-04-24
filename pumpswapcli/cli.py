@@ -16,7 +16,6 @@ try:
     from metaplex_api import create_and_mint_fungible_token, remove_authority, mint_to
 except:
     from .metaplex_api import create_and_mint_fungible_token, remove_authority, mint_to
-from dotenv import load_dotenv
 try:
     from cdn_wrapper import BunnyCDNUploader
 except:
@@ -29,7 +28,37 @@ from solana.rpc.commitment import Processed
 try: from psa_utils import find_pools_by_mint;
 except: from .psa_utils import find_pools_by_mint;
 
-load_dotenv()
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv(dotenv_path=Path.cwd() / ".env", override=False)
+
+REQUIRED_ENV_VARS = [
+    "REGION",
+    "STORAGE_ZONE_NAME",
+    "ACCESS_KEY",
+    "PULL_ZONE_NAME",
+    "PRIVATE_KEY",
+    "RPC_URL"
+]
+
+missing_keys = [key for key in REQUIRED_ENV_VARS if os.getenv(key) is None]
+
+if missing_keys:
+    print("Some environment variables are missing. Creating .env file interactively...")
+    env_values = {}
+
+    for key in missing_keys:
+        value = input(f"Enter value for {key}: ").strip()
+        env_values[key] = value
+
+    env_path = Path(".env")
+    with env_path.open("w") as f:
+        for k, v in env_values.items():
+            f.write(f"{k}={v}\n")
+
+    load_dotenv()
+
 logging.basicConfig(level=logging.INFO)
 
 suppress_logs = [
