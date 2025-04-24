@@ -1,32 +1,31 @@
 # PumpSwapAMM
 
-**This module allows making Buy and Sell transactions using Solana & Solders**, the current state of the module aims for an app integration rather than a standalone CLI application. 
-The data necessary for making the swap can be fetched on the fly by for example capturing relevant logs such as mint creation, pool creation, buys and sells via a `logsSubscribe` Solana's Standard Websocket method.
+**Trade tokens on the PumpSwap AMM using Python, Solders and Solana.**
+
+All you need is a pool address, and eventually token decimals if mint wasn't created on Pump.fun (but via metaplex for example).
+The module implements ways to fetch pool keys and price or account reserves.
+
+Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`
+
+**Thanks 💙**
+
+**Discord: [FLOCK4H.CAVE](https://discord.gg/thREUECv2a)**, **Telegram: [FLOCK4H.CAVE](https://t.me/flock4hcave)**
+
+**Telegram private handle: @dubskii420**
+
+<img src="https://github.com/user-attachments/assets/d655c153-0056-47fc-8314-6f919f18ed6d" width="256" />
 
 # Setup
 
 ```
-  $ pip install solana==0.35.1 solders==0.21.0
+  $ git clone https://github.com/FLOCK4H/PumpSwapAMM
+  $ cd PumpSwapAMM
+  $ pip install .
 ```
 
 # Usage
 
 **Check out the `example.py` script for a plug&play implementation**
-
-**The pool data structure:**
-
-```python
-pool_data = {
-    "pool_pubkey": Pubkey.from_string("9NXBQSt63ZZcw3e4DhbDPGP2FjnwW3aDJWEXRwcGEsN3"),
-    "token_base": Pubkey.from_string("x6X658KaETkoRYTxvsft8sdFHW1xt4ykeyzcRGtpump"),  # some mint
-    "token_quote": WSOL_MINT, # we support only WSOL as quote token
-    "pool_base_token_account": "3zAk4yo8JsBUTwNoL8amzxzX8ntG5kZbwnrgjArpFuCD",
-    "pool_quote_token_account": "9XuBJdRaTciFs4sVHPYn5T7mcBJqfqYaYzubSYmLjFE9",
-    "base_balance_tokens": base_balance_tokens, # poolBaseTokenReserves
-    "quote_balance_sol": quote_balance_sol, # poolQuoteTokenReserves
-    "decimals_base": decimals_base # this can be read from PoolCreation
-}
-```
 
 ```python
 class PumpSwap(
@@ -61,15 +60,66 @@ Args:
     fee_sol: float
 Returns:
     bool: True if successful, False otherwise
+
+(function) def fetch_pool(
+    pool: str,
+    async_client: AsyncClient
+) -> Coroutine[Any, Any, dict[str, Any]]
+
+(function) def fetch_pool_base_price(
+    pool_keys: Any,
+    async_client: Any
+) -> Coroutine[Any, Any, tuple[Decimal, Any, Any] | None]
 ```
 
-# TODO
+<h4>Examples</h4>
 
-❎ Fetch pool account state using PumpSwap AMM layouts
-- example data: https://solscan.io/account/9NXBQSt63ZZcw3e4DhbDPGP2FjnwW3aDJWEXRwcGEsN3#anchorData
+```python
+  # 1) Initialize PumpSwap client
+  client = PumpSwap(async_client, signer=async_payer_keypair)
 
-❎ Find pool account balances
+  # Example pool: https://solscan.io/account/9NXBQSt63ZZcw3e4DhbDPGP2FjnwW3aDJWEXRwcGEsN3
+  pool = "9NXBQSt63ZZcw3e4DhbDPGP2FjnwW3aDJWEXRwcGEsN3" # Change this to the token pool address you want to buy
 
-# NOTE
+  # 2) Fetch pool data
+  pool_keys = await fetch_pool(pool, async_client) 
+  base_price, base_balance_tokens, quote_balance_sol = await fetch_pool_base_price(pool_keys, async_client)
+  decimals_base = 6 # Pump.fun mints got 6 decimals, otherwise it can be read from Pool Creation, or Mint Creation transaction
 
-This is an early stage of the module, please submit any errors to the [Issues](https://github.com/FLOCK4H/PumpSwapAMM/issues) page.
+  # 3) Prepare pool data
+  pool_data = {
+      "pool_pubkey": Pubkey.from_string(pool),
+      "token_base": Pubkey.from_string(pool_keys["base_mint"]),
+      "token_quote": Pubkey.from_string(pool_keys["quote_mint"]),
+      "pool_base_token_account": pool_keys["pool_base_token_account"],
+      "pool_quote_token_account": pool_keys["pool_quote_token_account"],
+      "base_balance_tokens": base_balance_tokens,
+      "quote_balance_sol": quote_balance_sol,
+      "decimals_base": decimals_base
+  }
+
+  await client.buy(
+      pool_data,
+      sol_amount=0.002,
+      slippage_pct=10,
+      fee_sol=0.0005,
+  )
+
+  await client.sell(
+      pool_data,
+      sell_pct=100,
+      slippage_pct=10,
+      fee_sol=0.0005,
+  )
+```
+
+# Issues
+
+- "get_account_info_json_parsed" may throw a 401 or 403 if you're using helius/ (any other triton) dedicated node or staked APIs
+
+# LICENSE
+
+**Standard MIT License**
+
+> THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+> LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

@@ -3,12 +3,11 @@ from solders.pubkey import Pubkey # type: ignore
 from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair  # type: ignore
 
-from PumpSwapAMM import PumpSwap, fetch_pool
-from fetch_reserves import fetch_pool_base_price
+from pumpswapamm.PumpSwapAMM import PumpSwap, fetch_pool
+from solana.rpc.commitment import Processed
 
 PRIVATE_KEY  = "YOUR_PRIVATE_KEY_HERE"
 RPC_ENDPOINT = "ANY_RPC_ENDPOINT" # e.g. "https://mainnet.helius-rpc.com/?api-key=YOUR_API_KEY_HERE"
-WSOL_MINT    = Pubkey.from_string("So11111111111111111111111111111111111111112")
 
 async_client = AsyncClient(RPC_ENDPOINT)
 async_payer_keypair = Keypair.from_base58_string(PRIVATE_KEY)
@@ -17,13 +16,22 @@ async def main():
     # 1) Initialize PumpSwap client
     client = PumpSwap(async_client, signer=async_payer_keypair)
 
-    # Example pool: https://solscan.io/account/9NXBQSt63ZZcw3e4DhbDPGP2FjnwW3aDJWEXRwcGEsN3
-    pool = "9NXBQSt63ZZcw3e4DhbDPGP2FjnwW3aDJWEXRwcGEsN3"
+    # Example pool: https://solscan.io/account/8HmuBwTTYiLZcxUpUBwx4axwyogiaTwmhxyvE5qjc4ku
+    pool = "8HmuBwTTYiLZcxUpUBwx4axwyogiaTwmhxyvE5qjc4ku"
+    mint = "8oubm4nEgTFFa6SQWUoav9hpGt6MCrWQt5yXUBWEpump"
 
     # 2) Fetch pool data
     pool_keys = await fetch_pool(pool, async_client) 
-    base_price, base_balance_tokens, quote_balance_sol = await fetch_pool_base_price(pool_keys, async_client)
-    decimals_base       = 6 # Pump.fun mints got 6 decimals, otherwise it can be read from Pool Creation, or Mint Creation transaction
+    base_price, base_balance_tokens, quote_balance_sol = await client.fetch_pool_base_price(pool_keys)
+    # fetch decimals of the token
+    mint_info = await async_client.get_account_info_json_parsed(
+        Pubkey.from_string(mint),
+        commitment=Processed
+    )
+    if not mint_info:
+        print("Error: Failed to fetch mint info (tried to fetch token decimals).")
+        return
+    dec_base = mint_info.value.data.parsed['info']['decimals']
 
     # 3) Prepare pool data
     pool_data = {
@@ -34,7 +42,7 @@ async def main():
         "pool_quote_token_account": pool_keys["pool_quote_token_account"],
         "base_balance_tokens": base_balance_tokens,
         "quote_balance_sol": quote_balance_sol,
-        "decimals_base": decimals_base
+        "decimals_base": dec_base
     }
 
     # 4) Buy
