@@ -54,7 +54,8 @@ ACCESS_KEY=bunny-access-key
 STORAGE_ZONE_NAME=bunny-storage-zone-name
 PRIVATE_KEY=your-solana-private-key
 RPC_URL="https://mainnet.helius-rpc.com/?api-key=your-api-key"
-REGION= 
+REGION=
+PULL_ZONE_NAME=yourzonename
 ```
 
 # Usage
