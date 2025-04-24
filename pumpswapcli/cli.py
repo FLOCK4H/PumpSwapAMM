@@ -138,7 +138,7 @@ class PumpSwapCLI:
         is_meta_uploaded = False
         metadata_uri = None
 
-        c = cinput("Upload metadata or load from /tmp folder? (u/l)", maxlen=1)
+        c = cinput("Upload metadata, load from /tmp folder, or create manually (if not using Bunny)? (u/l/c)", maxlen=1)
         if c == "u":
             cprint(f"Please select the image you want to use for the token")
             # Prepare image
@@ -175,6 +175,16 @@ class PumpSwapCLI:
             file_path = metadata["image"]
             is_meta_uploaded = True
             metadata_uri = metadata["url"]
+        elif c == "c":
+            metadata_uri = cinput(f"Enter the metadata uri (directly, so e.g. https://your-cdn.b-cdn.net/my_metadata.json)")
+            name = cinput(f"Enter name for the token (same as in metadata)")
+            if not name:
+                wprint(f"Name cannot be empty")
+                await asyncio.sleep(3)
+                return None
+            symbol = cinput(f"Enter the symbol of the token (same as in metadata)")
+            description = cinput(f"Enter the description of the token (same as in metadata)")
+            is_meta_uploaded = True
         else:
             wprint(f"Unknown option: {c}")
                 
@@ -189,7 +199,7 @@ class PumpSwapCLI:
             metadata_uploader=BUNNY_UPLOADER,
             signer=self.signer,
             image_path=file_path,  # local image to upload
-            name=name or "PumpSwapCoin",
+            name=name,
             symbol=symbol or "$PSA",
             description=description or "Very casual description for a serious token.",
             decimals=decimals or 6,
