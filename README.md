@@ -1,8 +1,10 @@
 # PumpSwapAMM
 
 **Python SDK + CLI client for PumpSwap AMM on Solana.**
-Trade, create, and manage - Pools, and Tokens.
-The module implements ways to fetch pool keys and price or account reserves, deriving addresses, finding pools and more...
+Trade, create, and manage - Pools (aka Pairs), and Tokens.
+Grind addresses ending with `...pump` for your tokens.
+Support for Bunny.net API to store metadata off-chain.
+The module implements ways to **fetch pool keys and price or account reserves, deriving addresses, finding pools and more...**
 
 Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`, **Thanks 💙**
 
@@ -31,6 +33,10 @@ Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`, **Thanks 💙**
 ```
 
 **CLI & Bunny.net Setup**
+
+> [!TIP]
+> `pumpswap` CLI is being shipped with PumpSwapAMM, but when not using CLI the Bunny.net setup is unnecessary.
+> Also, `import pumpswapcli` enables you to use metaplex api to create and mint your tokens in your own application. 
 
 1. Create a storage zone
 
@@ -68,10 +74,10 @@ PULL_ZONE_NAME=yourzonename
 
 1. Create tokens via Metaplex, mint & modify authorities via user-friendly CLI application
 2. Deploy and manage PumpSwap Liquidity Pools including:
+- Create Pool
 - Withdraw
 - Deposit
-- Create_Pool
-3. Trade on PumpSwap: buy and sell tokens
+3. Trade tokens on PumpSwap.
 
 # Usage
 
@@ -153,6 +159,67 @@ Returns:
     sol_cap: float | None = None,
     mute: bool = False
 ) -> Coroutine[Any, Any, bool]
+
+# METAPLEX REGION
+
+class BunnyCDNUploader(
+    region: str,
+    storage_zone_name: str,
+    access_key: str,
+    pull_zone_name: str
+)
+
+(function) async def create_and_mint_fungible_token(
+    async_client: AsyncClient,
+    metadata_uploader: Any,
+    signer: Keypair,
+    image_path: str,
+    name: str,
+    symbol: str,
+    description: str,
+    decimals: int,
+    initial_supply: int,
+    remove_auth: bool = True,
+    custom_mint: bool = False,
+    priority_fee_sol: float = 0.0005,
+    is_meta_uploaded: bool = False,
+    metadata_uri: str = None
+) -> None
+
+(function) async def await_tx_confirmation(
+    client: AsyncClient,
+    tx_sig: str,
+    max_attempts: int = 15,
+    delay_sec: float = 2
+) -> bool
+
+(function) def build_create_metadata_v3_ix(
+    metadata_pda: Pubkey,
+    mint_pubkey: Pubkey,
+    mint_authority: Pubkey,
+    payer: Pubkey,
+    update_authority: Pubkey,
+    name: str,
+    symbol: str,
+    uri: str,
+    is_mutable: bool = False
+) -> Instruction
+
+(function) async def mint_to(
+    async_client: AsyncClient,
+    mint_pubkey: Pubkey,
+    user_pubkey: Pubkey,
+    signer: Keypair,
+    amount: int,
+    decimals: int
+) -> bool
+
+(function) async def remove_authority(
+    async_client: AsyncClient,
+    mint_pubkey: Pubkey,
+    user_pubkey: Pubkey,
+    signer: Keypair
+) -> bool
 ```
 
 <h4>Examples</h4>
