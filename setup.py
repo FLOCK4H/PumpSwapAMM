@@ -12,12 +12,16 @@ setup(
     author          = "FLOCK4H",
     license         = "MIT",
     python_requires = ">=3.10",
-    packages        = find_packages(exclude=("examples")),
+    packages=["PumpSwapAMM", "pumpswapcli"],
+    package_dir={
+        # ship the real code that lives in ./pumpswapamm
+        "PumpSwapAMM": "pumpswapamm",
+    },
     include_package_data = True,
 
     install_requires=[
-        "solana>=0.35.1",          # RPC client + spl-token helpers
-        "solders>=0.21.0",         # Rust bindings – signatures / PDAs
+        "solana==0.35.1",          # RPC client + spl-token helpers
+        "solders==0.21.0",         # Rust bindings – signatures / PDAs
         "construct",         # binary layout parsing
         "base58",
         "python-dotenv",    # .env convenience

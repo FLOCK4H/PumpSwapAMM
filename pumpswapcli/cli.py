@@ -22,10 +22,9 @@ try:
 except:
     from .cdn_wrapper import BunnyCDNUploader
 try:
-    from AMMCLI import PSAMM, fetch_pool, WSOL_MINT
+    from AMMCLI import PSAMM, fetch_pool, WSOL_MINT, fetch_pool_base_price
 except:
-    from .AMMCLI import PSAMM, fetch_pool, WSOL_MINT
-from PumpSwapAMM.fetch_reserves import fetch_pool_base_price
+    from .AMMCLI import PSAMM, fetch_pool, WSOL_MINT, fetch_pool_base_price
 from solana.rpc.commitment import Processed
 try: from psa_utils import find_pools_by_mint;
 except: from .psa_utils import find_pools_by_mint;

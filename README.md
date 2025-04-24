@@ -1,8 +1,8 @@
 # PumpSwapAMM
 
-**Trade tokens on the PumpSwap AMM using Python, Solders and Solana.**
+**Python SDK + optional CLI for Pump.fun’s PumpSwap AMM on Solana**
 
-All you need is a pool address, and eventually token decimals if mint wasn't created on Pump.fun (but via metaplex for example).
+Trade, create, and manage - Pools and Tokens.
 The module implements ways to fetch pool keys and price or account reserves.
 
 Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`

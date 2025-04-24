@@ -3,7 +3,7 @@ from solders.pubkey import Pubkey # type: ignore
 from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair  # type: ignore
 
-from pumpswapamm.PumpSwapAMM import PumpSwap, fetch_pool
+from PumpSwapAMM import PumpSwap, fetch_pool
 from solana.rpc.commitment import Processed
 
 PRIVATE_KEY  = "YOUR_PRIVATE_KEY_HERE"

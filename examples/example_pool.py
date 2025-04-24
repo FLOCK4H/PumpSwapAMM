@@ -3,8 +3,8 @@ from solders.pubkey import Pubkey # type: ignore
 from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair  # type: ignore
 from solana.rpc.commitment import Processed
-from pumpswapamm.PumpSwapAMM import PumpSwap, fetch_pool, WSOL_MINT
-from pumpswapamm.fetch_reserves import fetch_pool_base_price
+from PumpSwapAMM import PumpSwap, fetch_pool, WSOL_MINT
+from PumpSwapAMM.fetch_reserves import fetch_pool_base_price
 
 PRIVATE_KEY  = "YOUR_PRIVATE_KEY_HERE"
 RPC_ENDPOINT = "ANY_RPC_ENDPOINT" # e.g. "https://mainnet.helius-rpc.com/?api-key=YOUR_API_KEY_HERE"
