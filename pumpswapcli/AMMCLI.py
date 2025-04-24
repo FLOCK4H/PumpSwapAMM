@@ -112,7 +112,7 @@ def convert_pool_keys(container):
         "lp_supply": container.lp_supply
     }
 
-async def fetch_pool_base_price(pool: str, async_client: AsyncClient):
+async def fetch_pool_base_price(pool_keys: dict, async_client: AsyncClient):
     """
     Fetch the base price of the pool.
     Args:
@@ -120,7 +120,6 @@ async def fetch_pool_base_price(pool: str, async_client: AsyncClient):
     Returns:
         tuple: (base_price, base_balance_tokens, quote_balance_sol)
     """
-    pool_keys = await fetch_pool(pool, async_client)
     base_price, base_balance_tokens, quote_balance_sol = await fetch_pool_base_price(pool_keys, async_client)
     return base_price, base_balance_tokens, quote_balance_sol
 
