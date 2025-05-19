@@ -1,10 +1,20 @@
 # PumpSwapAMM
 
 **Python SDK + CLI client for PumpSwap AMM on Solana.**
-Trade, create, and manage - Pools, and Tokens.
-The module implements ways to fetch pool keys and price or account reserves, deriving addresses, finding pools and more...
+
+- Trade, create, and manage - Pools (aka Pairs), and Tokens.
+- Grind addresses ending with `...pump` for your tokens.
+- Support for Bunny.net API to store images and metadata off-chain.
+
+The module implements ways to **fetch pool keys and price or account reserves, deriving addresses, finding pools and more...**
 
 Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`, **Thanks 💙**
+
+https://github.com/user-attachments/assets/50336975-fcab-4e15-b021-62be9ba1ab12
+
+📹 [Watch the demo video](https://github.com/user-attachments/assets/50336975-fcab-4e15-b021-62be9ba1ab12)
+
+## Contact & Support
 
 **Discord: [FLOCK4H.CAVE](https://discord.gg/thREUECv2a)**, **Telegram: [FLOCK4H.CAVE](https://t.me/flock4hcave)**
 
@@ -15,6 +25,8 @@ Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`, **Thanks 💙**
 # Setup
 
 **Most convenient:**
+
+<h6>If module or a command can't be found, try installing with administrative rights</h6>
 
 ```
   $ pip install PumpSwapAMM
@@ -28,6 +40,44 @@ Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`, **Thanks 💙**
   $ pip install .
 ```
 
+**CLI & Bunny.net Setup**
+
+> [!TIP]
+> `pumpswap` CLI is being shipped with PumpSwapAMM, but when not using CLI the Bunny.net setup is unnecessary.
+> Also, `import pumpswapcli` enables you to use metaplex api to create and mint your tokens in your own application. 
+
+1. Create a storage zone
+
+![image](https://github.com/user-attachments/assets/bb365937-5f4d-4099-bc71-db1bbf1891be)
+
+2. Create + Connect Pull Zone
+
+![fsdfsdfsdfsdfsdfsd](https://github.com/user-attachments/assets/4517f7b8-06fd-4127-9911-9eb83fdf21c9)
+
+3. Save information for later:
+- Pull zone name
+- FPT & API Access -> Password
+- Storage zone name
+
+4. Run `pumpswap` command
+
+5. Create `.env` file with below schema or you will be prompted to enter credentials at app's start 
+
+```
+ACCESS_KEY=bunny-password-key
+STORAGE_ZONE_NAME=bunny-storage-zone-name
+PRIVATE_KEY=your-solana-private-key
+RPC_URL="https://mainnet.helius-rpc.com/?api-key=your-api-key"
+REGION=
+PULL_ZONE_NAME=yourzonename
+```
+
+You can leave all Bunny related fields empty if you're not creating tokens/ don't want to use Bunny:
+- ACCESS_KEY
+- STORAGE_ZONE_NAME
+- REGION
+- PULL_ZONE_NAME
+
 # [NEW] PumpSwapCLI
 
 <div align="center">
@@ -38,25 +88,10 @@ Tip wallet: `3oFDwxVtZEpSGeNgdWRiJtNiArv4k9FiMsMz3yjudgeS`, **Thanks 💙**
 
 1. Create tokens via Metaplex, mint & modify authorities via user-friendly CLI application
 2. Deploy and manage PumpSwap Liquidity Pools including:
+- Create Pool
 - Withdraw
 - Deposit
-- Create_Pool
-3. Trade on PumpSwap: buy and sell tokens
-
-**How to setup:**
-
-1. `$ pip install PumpSwapAMM` for quick install of the CLI + library
-2. Upload metadata for the token yourself/ use existing, or setup an account on Bunny.net (1$/month) and create a storage zone + pull zone
-3. Make sure to create .env file with these fields:
-
-```
-ACCESS_KEY=bunny-access-key
-STORAGE_ZONE_NAME=bunny-storage-zone-name
-PRIVATE_KEY=your-solana-private-key
-RPC_URL="https://mainnet.helius-rpc.com/?api-key=your-api-key"
-REGION=
-PULL_ZONE_NAME=yourzonename
-```
+3. Trade tokens on PumpSwap.
 
 # Usage
 
@@ -138,47 +173,142 @@ Returns:
     sol_cap: float | None = None,
     mute: bool = False
 ) -> Coroutine[Any, Any, bool]
+
+# METAPLEX REGION
+
+class BunnyCDNUploader(
+    region: str,
+    storage_zone_name: str,
+    access_key: str,
+    pull_zone_name: str
+)
+
+(function) async def create_and_mint_fungible_token(
+    async_client: AsyncClient,
+    metadata_uploader: Any,
+    signer: Keypair,
+    image_path: str,
+    name: str,
+    symbol: str,
+    description: str,
+    decimals: int,
+    initial_supply: int,
+    remove_auth: bool = True,
+    custom_mint: bool = False,
+    priority_fee_sol: float = 0.0005,
+    is_meta_uploaded: bool = False,
+    metadata_uri: str = None
+) -> None
+
+(function) async def await_tx_confirmation(
+    client: AsyncClient,
+    tx_sig: str,
+    max_attempts: int = 15,
+    delay_sec: float = 2
+) -> bool
+
+(function) def build_create_metadata_v3_ix(
+    metadata_pda: Pubkey,
+    mint_pubkey: Pubkey,
+    mint_authority: Pubkey,
+    payer: Pubkey,
+    update_authority: Pubkey,
+    name: str,
+    symbol: str,
+    uri: str,
+    is_mutable: bool = False
+) -> Instruction
+
+(function) async def mint_to(
+    async_client: AsyncClient,
+    mint_pubkey: Pubkey,
+    user_pubkey: Pubkey,
+    signer: Keypair,
+    amount: int,
+    decimals: int
+) -> bool
+
+(function) async def remove_authority(
+    async_client: AsyncClient,
+    mint_pubkey: Pubkey,
+    user_pubkey: Pubkey,
+    signer: Keypair
+) -> bool
 ```
 
 <h4>Examples</h4>
 
 ```python
-  # 1) Initialize PumpSwap client
-  client = PumpSwap(async_client, signer=async_payer_keypair)
+import asyncio
+from solders.pubkey import Pubkey # type: ignore
+from solana.rpc.async_api import AsyncClient
+from solders.keypair import Keypair  # type: ignore
 
-  # Example pool: https://solscan.io/account/9NXBQSt63ZZcw3e4DhbDPGP2FjnwW3aDJWEXRwcGEsN3
-  pool = "9NXBQSt63ZZcw3e4DhbDPGP2FjnwW3aDJWEXRwcGEsN3" # Change this to the token pool address you want to buy
+from PumpSwapAMM import PumpSwap, fetch_pool
+from solana.rpc.commitment import Processed
 
-  # 2) Fetch pool data
-  pool_keys = await fetch_pool(pool, async_client) 
-  base_price, base_balance_tokens, quote_balance_sol = await fetch_pool_base_price(pool_keys, async_client)
-  decimals_base = 6 # Pump.fun mints got 6 decimals, otherwise it can be read from Pool Creation, or Mint Creation transaction
+PRIVATE_KEY  = "YOUR_PRIVATE_KEY_HERE"
+RPC_ENDPOINT = "ANY_RPC_ENDPOINT" # e.g. "https://mainnet.helius-rpc.com/?api-key=YOUR_API_KEY_HERE"
 
-  # 3) Prepare pool data
-  pool_data = {
-      "pool_pubkey": Pubkey.from_string(pool),
-      "token_base": Pubkey.from_string(pool_keys["base_mint"]),
-      "token_quote": Pubkey.from_string(pool_keys["quote_mint"]),
-      "pool_base_token_account": pool_keys["pool_base_token_account"],
-      "pool_quote_token_account": pool_keys["pool_quote_token_account"],
-      "base_balance_tokens": base_balance_tokens,
-      "quote_balance_sol": quote_balance_sol,
-      "decimals_base": decimals_base
-  }
+async_client = AsyncClient(RPC_ENDPOINT)
+async_payer_keypair = Keypair.from_base58_string(PRIVATE_KEY)
 
-  await client.buy(
-      pool_data,
-      sol_amount=0.002,
-      slippage_pct=10,
-      fee_sol=0.0005,
-  )
+async def main():
+    # 1) Initialize PumpSwap client
+    client = PumpSwap(async_client, signer=async_payer_keypair)
 
-  await client.sell(
-      pool_data,
-      sell_pct=100,
-      slippage_pct=10,
-      fee_sol=0.0005,
-  )
+    # Example pool: https://solscan.io/account/8HmuBwTTYiLZcxUpUBwx4axwyogiaTwmhxyvE5qjc4ku
+    pool = "8HmuBwTTYiLZcxUpUBwx4axwyogiaTwmhxyvE5qjc4ku"
+    mint = "8oubm4nEgTFFa6SQWUoav9hpGt6MCrWQt5yXUBWEpump"
+
+    # 2) Fetch pool data
+    pool_keys = await fetch_pool(pool, async_client) 
+    base_price, base_balance_tokens, quote_balance_sol = await client.fetch_pool_base_price(pool_keys)
+    # fetch decimals of the token
+    mint_info = await async_client.get_account_info_json_parsed(
+        Pubkey.from_string(mint),
+        commitment=Processed
+    )
+    if not mint_info:
+        print("Error: Failed to fetch mint info (tried to fetch token decimals).")
+        return
+    dec_base = mint_info.value.data.parsed['info']['decimals']
+
+    # 3) Prepare pool data
+    pool_data = {
+        "pool_pubkey": Pubkey.from_string(pool),
+        "token_base": Pubkey.from_string(pool_keys["base_mint"]),
+        "token_quote": Pubkey.from_string(pool_keys["quote_mint"]),
+        "pool_base_token_account": pool_keys["pool_base_token_account"],
+        "pool_quote_token_account": pool_keys["pool_quote_token_account"],
+        "base_balance_tokens": base_balance_tokens,
+        "quote_balance_sol": quote_balance_sol,
+        "decimals_base": dec_base
+    }
+
+    # 4) Buy
+    await client.buy(
+        pool_data,
+        sol_amount=0.002,
+        slippage_pct=10,
+        fee_sol=0.0005,
+    )
+
+    print("Waiting 10 seconds...")
+    await asyncio.sleep(10)
+
+    # 5) Sell
+    await client.sell(
+        pool_data,
+        sell_pct=100,
+        slippage_pct=10,
+        fee_sol=0.0005,
+    )
+
+    await client.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
 ```python
