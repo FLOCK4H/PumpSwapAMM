@@ -16,7 +16,6 @@ try:
     from metaplex_api import create_and_mint_fungible_token, remove_authority, mint_to
 except:
     from .metaplex_api import create_and_mint_fungible_token, remove_authority, mint_to
-from dotenv import load_dotenv
 try:
     from cdn_wrapper import BunnyCDNUploader
 except:
@@ -29,7 +28,37 @@ from solana.rpc.commitment import Processed
 try: from psa_utils import find_pools_by_mint;
 except: from .psa_utils import find_pools_by_mint;
 
-load_dotenv()
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv(dotenv_path=Path.cwd() / ".env", override=False)
+
+REQUIRED_ENV_VARS = [
+    "REGION",
+    "STORAGE_ZONE_NAME",
+    "ACCESS_KEY",
+    "PULL_ZONE_NAME",
+    "PRIVATE_KEY",
+    "RPC_URL"
+]
+
+missing_keys = [key for key in REQUIRED_ENV_VARS if os.getenv(key) is None]
+
+if missing_keys:
+    print("Some environment variables are missing. Creating .env file interactively...")
+    env_values = {}
+
+    for key in missing_keys:
+        value = input(f"Enter value for {key}: ").strip()
+        env_values[key] = value
+
+    env_path = Path(".env")
+    with env_path.open("w") as f:
+        for k, v in env_values.items():
+            f.write(f"{k}={v}\n")
+
+    load_dotenv()
+
 logging.basicConfig(level=logging.INFO)
 
 suppress_logs = [
@@ -60,11 +89,13 @@ for log_name in suppress_logs:
 # PRIVATE_KEY=your-solana-private-key
 # RPC_URL="https://mainnet.helius-rpc.com/?api-key=your-api-key"
 # REGION=
+# PULL_ZONE_NAME=your-pull-zone-name e.g. flockahh
 
 BUNNY_UPLOADER = BunnyCDNUploader(
     region=os.getenv("REGION"),  # e.g. 'uk' or leave blank for default global
     storage_zone_name=os.getenv("STORAGE_ZONE_NAME"),
     access_key=os.getenv("ACCESS_KEY"),
+    pull_zone_name=os.getenv("PULL_ZONE_NAME")  # e.g. 'your-pull-zone-name'
 )
 PRIV_KEY = os.getenv("PRIVATE_KEY")
 RPC_URL = os.getenv("RPC_URL")
@@ -138,7 +169,7 @@ class PumpSwapCLI:
         is_meta_uploaded = False
         metadata_uri = None
 
-        c = cinput("Upload metadata or load from /tmp folder? (u/l)", maxlen=1)
+        c = cinput("Upload metadata, load from /tmp folder, or create manually (if not using Bunny)? (u/l/c)", maxlen=1)
         if c == "u":
             cprint(f"Please select the image you want to use for the token")
             # Prepare image
@@ -175,6 +206,17 @@ class PumpSwapCLI:
             file_path = metadata["image"]
             is_meta_uploaded = True
             metadata_uri = metadata["url"]
+        elif c == "c":
+            metadata_uri = cinput(f"Enter the metadata uri (directly, so e.g. https://your-cdn.b-cdn.net/my_metadata.json)")
+            name = cinput(f"Enter name for the token (same as in metadata)")
+            if not name:
+                wprint(f"Name cannot be empty")
+                await asyncio.sleep(3)
+                return None
+            symbol = cinput(f"Enter the symbol of the token (same as in metadata)")
+            description = cinput(f"Enter the description of the token (same as in metadata)")
+            file_path = ""
+            is_meta_uploaded = True
         else:
             wprint(f"Unknown option: {c}")
                 
@@ -189,7 +231,7 @@ class PumpSwapCLI:
             metadata_uploader=BUNNY_UPLOADER,
             signer=self.signer,
             image_path=file_path,  # local image to upload
-            name=name or "PumpSwapCoin",
+            name=name,
             symbol=symbol or "$PSA",
             description=description or "Very casual description for a serious token.",
             decimals=decimals or 6,

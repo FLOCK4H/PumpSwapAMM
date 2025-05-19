@@ -63,6 +63,7 @@ async def main():
         "base_balance_tokens": base_bal,
         "quote_balance_sol":   quote_bal,
         "decimals_base":       dec_base,
+        "coin_creator": Pubkey.from_string(pool_keys["coin_creator"]),
     }
 
     # fetch decimals of the token

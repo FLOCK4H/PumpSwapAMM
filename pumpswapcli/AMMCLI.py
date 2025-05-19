@@ -19,6 +19,42 @@ from spl.token.instructions import (
     CloseAccountParams,
 )
 from construct import Struct as cStruct, Byte, Int16ul, Int64ul, Bytes
+from decimal import Decimal
+
+async def agpr(pool_keys, async_client):
+    try:
+        vault_quote = Pubkey.from_string(pool_keys["pool_quote_token_account"])
+        vault_base = Pubkey.from_string(pool_keys["pool_base_token_account"])
+
+        accounts_resp = await async_client.get_multiple_accounts_json_parsed(
+            [vault_quote, vault_base], 
+            commitment=Processed
+        )
+        accounts_data = accounts_resp.value
+
+        account_quote = accounts_data[0]
+        account_base = accounts_data[1]
+        
+        quote_balance = account_quote.data.parsed['info']['tokenAmount']['uiAmount']
+        base_balance = account_base.data.parsed['info']['tokenAmount']['uiAmount']
+        
+        if quote_balance is None or base_balance is None:
+            print("Error: One of the account balances is None.")
+            return None, None
+        
+        return base_balance, quote_balance
+
+    except Exception as exc:
+        print(f"Error fetching pool reserves: {exc}")
+        return None, None
+    
+async def fetch_pool_base_price(pool_keys, async_client):
+    balance_base, balance_quote = await agpr(pool_keys, async_client)
+    if balance_base is None or balance_quote is None:
+        print("Error: One of the account balances is None.")
+        return None
+    price = Decimal(balance_quote) / Decimal(balance_base)
+    return (price, balance_base, balance_quote)
 
 POOL_COMPUTE_BUDGET = 200_000
 UNIT_COMPUTE_BUDGET = 120_000
@@ -111,18 +147,6 @@ def convert_pool_keys(container):
         "pool_quote_token_account": str(Pubkey.from_bytes(container.pool_quote_token_account)),
         "lp_supply": container.lp_supply
     }
-
-async def fetch_pool_base_price(pool: str, async_client: AsyncClient):
-    """
-    Fetch the base price of the pool.
-    Args:
-        pool (str): Pool address.
-    Returns:
-        tuple: (base_price, base_balance_tokens, quote_balance_sol)
-    """
-    pool_keys = await fetch_pool(pool, async_client)
-    base_price, base_balance_tokens, quote_balance_sol = await fetch_pool_base_price(pool_keys, async_client)
-    return base_price, base_balance_tokens, quote_balance_sol
 
 async def fetch_pool(pool: str, async_client: AsyncClient):
     """

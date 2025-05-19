@@ -23,7 +23,7 @@ except:
     from .fetch_reserves import fetch_pool_base_price
 
 POOL_COMPUTE_BUDGET = 200_000
-UNIT_COMPUTE_BUDGET = 120_000
+UNIT_COMPUTE_BUDGET = 200_000
 
 WSOL_MINT           = Pubkey.from_string("So11111111111111111111111111111111111111112")
 PUMPSWAP_PROGRAM_ID = Pubkey.from_string("pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA")
@@ -49,6 +49,28 @@ def get_price(base_balance_tokens: float, quote_balance_sol: float) -> float:
     if base_balance_tokens <= 0:
         return float("inf")
     return quote_balance_sol / base_balance_tokens
+
+CREATOR_VAULT_SEED  = b"creator_vault"
+
+def derive_creator_vault(creator: Pubkey, quote_mint: Pubkey) -> tuple[Pubkey, Pubkey]:
+    """
+    Derive the PDA that collects the 0.05% creator fee (in the *quote* token),
+    plus its associated token account.
+
+    seeds = [
+      b"creator_vault",
+      <creator pubkey bytes>
+    ]
+    program = PUMPSWAP_PROGRAM_ID
+
+    Returns (vault_ata, vault_authority).
+    """
+    vault_auth, bump = Pubkey.find_program_address(
+        [CREATOR_VAULT_SEED, bytes(creator)],
+        PUMPSWAP_PROGRAM_ID
+    )
+    vault_ata = get_associated_token_address(vault_auth, quote_mint)
+    return vault_ata, vault_auth
 
 def convert_sol_to_base_tokens(
     sol_amount: float,
@@ -99,6 +121,7 @@ PumpSwapPoolState = cStruct(
     "pool_base_token_account" / Bytes(32),
     "pool_quote_token_account" / Bytes(32),
     "lp_supply" / Int64ul,
+    "coin_creator" / Bytes(32),
 )
 
 def convert_pool_keys(container):
@@ -111,7 +134,8 @@ def convert_pool_keys(container):
         "lp_mint": str(Pubkey.from_bytes(container.lp_mint)),
         "pool_base_token_account": str(Pubkey.from_bytes(container.pool_base_token_account)),
         "pool_quote_token_account": str(Pubkey.from_bytes(container.pool_quote_token_account)),
-        "lp_supply": container.lp_supply
+        "lp_supply": container.lp_supply,
+        "coin_creator": str(Pubkey.from_bytes(container.coin_creator)),
     }
 
 async def fetch_pool(pool: str, async_client: AsyncClient):
@@ -127,6 +151,7 @@ async def fetch_pool(pool: str, async_client: AsyncClient):
                 pool_base_token_account: str
                 pool_quote_token_account: str
                 lp_supply: int
+                coin_creator: str
     """
     pool = Pubkey.from_string(pool)
 
@@ -139,18 +164,6 @@ async def fetch_pool(pool: str, async_client: AsyncClient):
     parsed = convert_pool_keys(parsed)
 
     return parsed
-
-async def fetch_pool_base_price(pool: str, async_client: AsyncClient):
-    """
-    Fetch the base price of the pool.
-    Args:
-        pool (str): Pool address.
-    Returns:
-        tuple: (base_price, base_balance_tokens, quote_balance_sol)
-    """
-    pool_keys = await fetch_pool(pool, async_client)
-    base_price, base_balance_tokens, quote_balance_sol = await fetch_pool_base_price(pool_keys, async_client)
-    return base_price, base_balance_tokens, quote_balance_sol
 
 class PumpSwap:
     def __init__(self, async_client: AsyncClient, signer: Keypair):
@@ -223,6 +236,8 @@ class PumpSwap:
         base_balance_tokens = pool_data['base_balance_tokens']
         quote_balance_sol   = pool_data['quote_balance_sol']
         decimals_base       = pool_data['decimals_base']
+        coin_creator  = pool_data["coin_creator"]
+        vault_ata, vault_auth = derive_creator_vault(coin_creator, pool_data['token_quote'])
 
         (base_amount_out, max_quote_amount_in) = convert_sol_to_base_tokens(
             sol_amount, base_balance_tokens, quote_balance_sol,
@@ -277,7 +292,9 @@ class PumpSwap:
             protocol_fee_recipient   = PROTOCOL_FEE_RECIP,
             protocol_fee_recipient_ata = PROTOCOL_FEE_RECIP_ATA,
             base_amount_out = base_amount_out,
-            max_quote_amount_in = max_quote_amount_in
+            max_quote_amount_in = max_quote_amount_in,
+            vault_auth = vault_auth,
+            vault_ata = vault_ata,
         )
         instructions.append(buy_ix)
 
@@ -336,7 +353,9 @@ class PumpSwap:
         protocol_fee_recipient: Pubkey,
         protocol_fee_recipient_ata: Pubkey,
         base_amount_out: int,
-        max_quote_amount_in: int
+        max_quote_amount_in: int,
+        vault_auth: Pubkey,
+        vault_ata: Pubkey
     ):
         """
           #1 Pool
@@ -387,6 +406,8 @@ class PumpSwap:
             AccountMeta(pubkey=SPubkey.from_string(str(ASSOCIATED_TOKEN)), is_signer=False, is_writable=False),
             AccountMeta(pubkey=SPubkey.from_string(str(EVENT_AUTHORITY)), is_signer=False, is_writable=False),
             AccountMeta(pubkey=SPubkey.from_string(str(PUMPSWAP_PROGRAM_ID)), is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(vault_ata)), is_signer=False, is_writable=True),
+            AccountMeta(pubkey=SPubkey.from_string(str(vault_auth)), is_signer=False, is_writable=True),
         ]
 
         ix = Instruction(
@@ -426,7 +447,10 @@ class PumpSwap:
             if not mute:
                 print("Nothing to sell after applying percentage.")
             return False
-        
+
+        coin_creator  = pool_data["coin_creator"]
+        vault_ata, vault_auth = derive_creator_vault(coin_creator, pool_data['token_quote'])
+
         decimals_base = pool_data['decimals_base']
         base_amount_in = int(to_sell_amount_f * (10 ** decimals_base))
         
@@ -464,6 +488,8 @@ class PumpSwap:
             min_quote_amount_out = min_quote_amount_out,
             protocol_fee_recipient   = PROTOCOL_FEE_RECIP,
             protocol_fee_recipient_ata = PROTOCOL_FEE_RECIP_ATA,
+            vault_auth = vault_auth,
+            vault_ata = vault_ata,
         )
         instructions.append(sell_ix)
         
@@ -504,7 +530,9 @@ class PumpSwap:
         base_amount_in: int,
         min_quote_amount_out: int,
         protocol_fee_recipient: Pubkey,
-        protocol_fee_recipient_ata: Pubkey
+        protocol_fee_recipient_ata: Pubkey,
+        vault_auth: Pubkey,
+        vault_ata: Pubkey
     ):
         """
         Accounts (17 total):
@@ -555,6 +583,8 @@ class PumpSwap:
             AccountMeta(pubkey=SPubkey.from_string(str(ASSOCIATED_TOKEN)), is_signer=False, is_writable=False),
             AccountMeta(pubkey=SPubkey.from_string(str(EVENT_AUTHORITY)), is_signer=False, is_writable=False),
             AccountMeta(pubkey=SPubkey.from_string(str(PUMPSWAP_PROGRAM_ID)), is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(vault_ata)), is_signer=False, is_writable=True),
+            AccountMeta(pubkey=SPubkey.from_string(str(vault_auth)), is_signer=False, is_writable=True),
         ]
 
         return Instruction(

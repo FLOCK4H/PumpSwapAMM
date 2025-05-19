@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 this_dir = Path(__file__).parent
 setup(
     name            = "PumpSwapAMM",
-    version         = "2.0.0",
+    version         = "2.0.7",
     description     = "Python SDK + optional CLI for Pump.fun’s PumpSwap AMM on Solana",
     long_description= (this_dir / "README.md").read_text(),
     long_description_content_type="text/markdown",
@@ -14,7 +14,6 @@ setup(
     python_requires = ">=3.10",
     packages=["PumpSwapAMM", "pumpswapcli"],
     package_dir={
-        # ship the real code that lives in ./pumpswapamm
         "PumpSwapAMM": "pumpswapamm",
     },
     include_package_data = True,

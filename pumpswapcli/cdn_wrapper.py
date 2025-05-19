@@ -14,7 +14,8 @@ class BunnyCDNUploader:
     def __init__(self,
                  region: str,
                  storage_zone_name: str,
-                 access_key: str):
+                 access_key: str,
+                 pull_zone_name: str):
         """
         :param region: Short region code per Bunny docs (e.g. 'uk', 'ny', '').
         :param storage_zone_name: Name of your Bunny Storage Zone.
@@ -29,7 +30,7 @@ class BunnyCDNUploader:
         if self.region:
             base_url = f"{self.region}.{base_url}"
         self.upload_base_url = base_url
-        self.download_base_url = "flockahh.b-cdn.net"
+        self.download_base_url = f"{pull_zone_name}.b-cdn.net"
 
     def create_folder(self, folder_name: str):
         if not os.path.exists(folder_name):
