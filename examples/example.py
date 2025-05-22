@@ -1,14 +1,16 @@
 import asyncio
+import traceback
 from solders.pubkey import Pubkey # type: ignore
 from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair  # type: ignore
 
-from PumpSwapAMM import PumpSwap, fetch_pool
+from PumpSwapAMM import PumpSwap, fetch_pool_state
 from solana.rpc.commitment import Processed
 
-PRIVATE_KEY  = ""
-RPC_ENDPOINT = "" # e.g. "https://mainnet.helius-rpc.com/?api-key="
+API_KEY = ""
 
+PRIVATE_KEY  = ""
+RPC_ENDPOINT = "https://mainnet.helius-rpc.com/?api-key=" + API_KEY
 async_client = AsyncClient(RPC_ENDPOINT)
 async_payer_keypair = Keypair.from_base58_string(PRIVATE_KEY)
 
@@ -23,7 +25,7 @@ async def main():
     mint = "4enWCbYyjTrvZPZzNiXi53CLqYVquLt4Z6MABKM3pump"
 
     # 2) Fetch pool data
-    pool_keys = await fetch_pool(pool, async_client) 
+    pool_keys, pool_type = await fetch_pool_state(pool, async_client) 
     base_price, base_balance_tokens, quote_balance_sol = await client.fetch_pool_base_price(pool)
     # fetch decimals of the token
     mint_info = await async_client.get_account_info_json_parsed(
@@ -45,16 +47,24 @@ async def main():
         "base_balance_tokens": base_balance_tokens,
         "quote_balance_sol": quote_balance_sol,
         "decimals_base": dec_base,
-        "coin_creator": Pubkey.from_string(pool_keys["coin_creator"]),
     }
+    if pool_type == "NEW":
+        pool_data["coin_creator"] = Pubkey.from_string(pool_keys["coin_creator"])
+    else:
+        print("Pool is old, which means tx may return custom program error: 3003 | Failed to deserialize the account")
 
+    try:
     # 4) Buy
-    await client.buy(
-        pool_data,
-        sol_amount=0.002,
-        slippage_pct=10,
-        fee_sol=0.0005,
-    )
+        await client.buy(
+            pool_data,
+            sol_amount=0.002,
+            pool_type=pool_type,
+            slippage_pct=10,
+            fee_sol=0.0005
+            )
+    except Exception as e:
+        traceback.print_exc()
+        print(e)
 
     print("Waiting 10 seconds...")
     await asyncio.sleep(10)
@@ -63,6 +73,7 @@ async def main():
     await client.sell(
         pool_data,
         sell_pct=100,
+        pool_type=pool_type,
         slippage_pct=10,
         fee_sol=0.0005,
     )

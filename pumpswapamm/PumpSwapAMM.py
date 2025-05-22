@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 from typing import Optional
 from solana.rpc.async_api import AsyncClient
 from solana.rpc.types import TxOpts, TokenAccountOpts
@@ -53,18 +54,6 @@ def get_price(base_balance_tokens: float, quote_balance_sol: float) -> float:
 CREATOR_VAULT_SEED  = b"creator_vault"
 
 def derive_creator_vault(creator: Pubkey, quote_mint: Pubkey) -> tuple[Pubkey, Pubkey]:
-    """
-    Derive the PDA that collects the 0.05% creator fee (in the *quote* token),
-    plus its associated token account.
-
-    seeds = [
-      b"creator_vault",
-      <creator pubkey bytes>
-    ]
-    program = PUMPSWAP_PROGRAM_ID
-
-    Returns (vault_ata, vault_authority).
-    """
     vault_auth, bump = Pubkey.find_program_address(
         [CREATOR_VAULT_SEED, bytes(creator)],
         PUMPSWAP_PROGRAM_ID
@@ -111,7 +100,7 @@ def compute_unit_price_from_total_fee(
     micro_lamports_per_cu = lamports_per_cu * 1_000_000
     return int(micro_lamports_per_cu)
 
-PumpSwapPoolState = cStruct(
+PumpSwapPoolStateNew = cStruct(
     "pool_bump" / Byte,
     "index" / Int16ul,
     "creator" / Bytes(32),
@@ -123,8 +112,22 @@ PumpSwapPoolState = cStruct(
     "lp_supply" / Int64ul,
     "coin_creator" / Bytes(32),
 )
+PumpSwapPoolStateOld = cStruct(
+    "pool_bump" / Byte,
+    "index" / Int16ul,
+    "creator" / Bytes(32),
+    "base_mint" / Bytes(32),
+    "quote_mint" / Bytes(32),
+    "lp_mint" / Bytes(32),
+    "pool_base_token_account" / Bytes(32),
+    "pool_quote_token_account" / Bytes(32),
+    "lp_supply" / Int64ul,
+)
 
-def convert_pool_keys(container):
+NEW_POOL_TYPE = "NEW"
+OLD_POOL_TYPE = "OLD"
+
+def convert_pool_keys(container, pool_type):
     return {
         "pool_bump": container.pool_bump,
         "index": container.index,
@@ -136,9 +139,19 @@ def convert_pool_keys(container):
         "pool_quote_token_account": str(Pubkey.from_bytes(container.pool_quote_token_account)),
         "lp_supply": container.lp_supply,
         "coin_creator": str(Pubkey.from_bytes(container.coin_creator)),
+    } if pool_type == NEW_POOL_TYPE else {
+        "pool_bump": container.pool_bump,
+        "index": container.index,
+        "creator": str(Pubkey.from_bytes(container.creator)),
+        "base_mint": str(Pubkey.from_bytes(container.base_mint)),
+        "quote_mint": str(Pubkey.from_bytes(container.quote_mint)),
+        "lp_mint": str(Pubkey.from_bytes(container.lp_mint)),
+        "pool_base_token_account": str(Pubkey.from_bytes(container.pool_base_token_account)),
+        "pool_quote_token_account": str(Pubkey.from_bytes(container.pool_quote_token_account)),
+        "lp_supply": container.lp_supply
     }
 
-async def fetch_pool(pool: str, async_client: AsyncClient):
+async def fetch_pool_state(pool: str, async_client: AsyncClient):
     """
         Returns:
             dict: Pool data:
@@ -151,7 +164,7 @@ async def fetch_pool(pool: str, async_client: AsyncClient):
                 pool_base_token_account: str
                 pool_quote_token_account: str
                 lp_supply: int
-                coin_creator: str
+                coin_creator: str [Optional]
     """
     pool = Pubkey.from_string(pool)
 
@@ -160,10 +173,20 @@ async def fetch_pool(pool: str, async_client: AsyncClient):
         raise Exception("Invalid account response")
 
     raw_data = resp.value.data
-    parsed = PumpSwapPoolState.parse(raw_data[8:]) # ad
-    parsed = convert_pool_keys(parsed)
+    pool_type = NEW_POOL_TYPE
+    try:
+        parsed = PumpSwapPoolStateNew.parse(raw_data[8:])
+    except Exception as e:
+        try:
+            parsed = PumpSwapPoolStateOld.parse(raw_data[8:])
+            pool_type = OLD_POOL_TYPE
+        except Exception as e:
+            traceback.print_exc()
+            return (None, None)
+        
+    parsed = convert_pool_keys(parsed, pool_type=pool_type)
 
-    return parsed
+    return (parsed, pool_type)
 
 class PumpSwap:
     def __init__(self, async_client: AsyncClient, signer: Keypair):
@@ -181,7 +204,7 @@ class PumpSwap:
         Returns:
             tuple: (base_price, base_balance_tokens, quote_balance_sol)
         """
-        pool_keys = await fetch_pool(pool, self.async_client)
+        pool_keys, _ = await fetch_pool_state(pool, self.async_client)
         base_price, base_balance_tokens, quote_balance_sol = await fetch_pool_base_price(pool_keys, self.async_client)
         return base_price, base_balance_tokens, quote_balance_sol
 
@@ -219,9 +242,10 @@ class PumpSwap:
         self,
         pool_data: dict,
         sol_amount: float,      # e.g. 0.001
-        slippage_pct: float,    # e.g. 1.0 => 1%
-        fee_sol: float,         # total priority fee user wants to pay, e.g. 0.0005
-        mute: bool = False
+        pool_type: str = NEW_POOL_TYPE,
+        slippage_pct: float = 10,    # e.g. 1.0 => 1%
+        fee_sol: float = 0.00001,         # total priority fee user wants to pay, e.g. 0.0005
+        debug_prints: bool = False
     ):
         """
             Args:
@@ -230,14 +254,16 @@ class PumpSwap:
                 slippage_pct: float
                 fee_sol: float
             Returns:
-                bool: True if successful, False otherwise
+                tuple: (confirmed: bool, tx_sig: str, pool_type: (str)OLD | (str)NEW, (float)mint_amount_we_bought)
         """
         user_pubkey = self.signer.pubkey()
         base_balance_tokens = pool_data['base_balance_tokens']
         quote_balance_sol   = pool_data['quote_balance_sol']
         decimals_base       = pool_data['decimals_base']
-        coin_creator  = pool_data["coin_creator"]
-        vault_ata, vault_auth = derive_creator_vault(coin_creator, pool_data['token_quote'])
+
+        if pool_type == NEW_POOL_TYPE:
+            coin_creator  = pool_data["coin_creator"]
+            vault_ata, vault_auth = derive_creator_vault(coin_creator, pool_data['token_quote'])
 
         (base_amount_out, max_quote_amount_in) = convert_sol_to_base_tokens(
             sol_amount, base_balance_tokens, quote_balance_sol,
@@ -279,23 +305,40 @@ class PumpSwap:
         if base_ata_ix:
             instructions.append(base_ata_ix)
 
-        buy_ix = self._build_pumpswap_buy_ix(
-            pool_pubkey = pool_data['pool_pubkey'],
-            user_pubkey = user_pubkey,
-            global_config = GLOBAL_CONFIG_PUB,
-            base_mint    = pool_data['token_base'],
-            quote_mint   = pool_data['token_quote'],
-            user_base_token_ata  = get_associated_token_address(user_pubkey, pool_data['token_base']),
-            user_quote_token_ata = get_associated_token_address(user_pubkey, pool_data['token_quote']),
-            pool_base_token_account  = Pubkey.from_string(pool_data['pool_base_token_account']),
-            pool_quote_token_account = Pubkey.from_string(pool_data['pool_quote_token_account']),
-            protocol_fee_recipient   = PROTOCOL_FEE_RECIP,
-            protocol_fee_recipient_ata = PROTOCOL_FEE_RECIP_ATA,
-            base_amount_out = base_amount_out,
-            max_quote_amount_in = max_quote_amount_in,
-            vault_auth = vault_auth,
-            vault_ata = vault_ata,
-        )
+        if pool_type == NEW_POOL_TYPE:
+            buy_ix = self._build_new_pumpswap_buy_ix(
+                pool_pubkey = pool_data['pool_pubkey'],
+                user_pubkey = user_pubkey,
+                global_config = GLOBAL_CONFIG_PUB,
+                base_mint    = pool_data['token_base'],
+                quote_mint   = pool_data['token_quote'],
+                user_base_token_ata  = get_associated_token_address(user_pubkey, pool_data['token_base']),
+                user_quote_token_ata = get_associated_token_address(user_pubkey, pool_data['token_quote']),
+                pool_base_token_account  = Pubkey.from_string(pool_data['pool_base_token_account']),
+                pool_quote_token_account = Pubkey.from_string(pool_data['pool_quote_token_account']),
+                protocol_fee_recipient   = PROTOCOL_FEE_RECIP,
+                protocol_fee_recipient_ata = PROTOCOL_FEE_RECIP_ATA,
+                base_amount_out = base_amount_out,
+                max_quote_amount_in = max_quote_amount_in,
+                vault_auth = vault_auth,
+                vault_ata = vault_ata,
+            )
+        elif pool_type == OLD_POOL_TYPE:
+            buy_ix = self._build_old_pumpswap_buy_ix(
+                pool_pubkey = pool_data['pool_pubkey'],
+                user_pubkey = user_pubkey,
+                global_config = GLOBAL_CONFIG_PUB,
+                base_mint    = pool_data['token_base'],
+                quote_mint   = pool_data['token_quote'],
+                user_base_token_ata  = get_associated_token_address(user_pubkey, pool_data['token_base']),
+                user_quote_token_ata = get_associated_token_address(user_pubkey, pool_data['token_quote']),
+                pool_base_token_account  = Pubkey.from_string(pool_data['pool_base_token_account']),
+                pool_quote_token_account = Pubkey.from_string(pool_data['pool_quote_token_account']),
+                protocol_fee_recipient   = PROTOCOL_FEE_RECIP,
+                protocol_fee_recipient_ata = PROTOCOL_FEE_RECIP_ATA,
+                base_amount_out = base_amount_out,
+                max_quote_amount_in = max_quote_amount_in
+            )
         instructions.append(buy_ix)
 
         instructions.append(
@@ -320,14 +363,14 @@ class PumpSwap:
 
         opts = TxOpts(skip_preflight=True, max_retries=0)
         send_resp = await self.async_client.send_transaction(transaction, opts=opts)
-        if not mute:
+        if debug_prints:
             print(f"Transaction sent: https://solscan.io/tx/{send_resp.value}")
 
         # Confirm
         confirmed = await self._await_confirm_transaction(send_resp.value)
-        if not mute:
+        if debug_prints:
             print("Success:", confirmed)
-        return confirmed
+        return (confirmed, str(send_resp.value), pool_type, base_amount_out)
 
     def _build_system_transfer_ix(self, from_pubkey: Pubkey, to_pubkey: Pubkey, lamports: int):
         from solders.system_program import TransferParams, transfer
@@ -338,8 +381,82 @@ class PumpSwap:
                 lamports=lamports
             )
         )
+
+    def _build_old_pumpswap_buy_ix(
+        self,
+        pool_pubkey: Pubkey,
+        user_pubkey: Pubkey,
+        global_config: Pubkey,
+        base_mint: Pubkey,
+        quote_mint: Pubkey,
+        user_base_token_ata: Pubkey,
+        user_quote_token_ata: Pubkey,
+        pool_base_token_account: Pubkey,
+        pool_quote_token_account: Pubkey,
+        protocol_fee_recipient: Pubkey,
+        protocol_fee_recipient_ata: Pubkey,
+        base_amount_out: int,
+        max_quote_amount_in: int
+    ):
+        """
+          #1 Pool
+          #2 User
+          #3 Global Config
+          #4 Base Mint
+          #5 Quote Mint
+          #6 User Base ATA
+          #7 User Quote ATA
+          #8 Pool Base ATA
+          #9 Pool Quote ATA
+          #10 Protocol Fee Recipient
+          #11 Protocol Fee Recipient Token Account
+          #12 Base Token Program
+          #13 Quote Token Program
+          #14 System Program
+          #15 Associated Token Program
+          #16 Event Authority
+          #17 PumpSwap Program
+        
+          {
+            base_amount_out:  u64,
+            max_quote_amount_in: u64
+          }
+        plus an 8-byte Anchor discriminator at the front. 
+        """
+        from solana.transaction import AccountMeta, Instruction
+        from solders.pubkey import Pubkey as SPubkey  # type: ignore
+        import struct
+
+        data = BUY_INSTR_DISCRIM + struct.pack("<QQ", base_amount_out, max_quote_amount_in)
+
+        accs = [
+            AccountMeta(pubkey=SPubkey.from_string(str(pool_pubkey)),  is_signer=False, is_writable=True),
+            AccountMeta(pubkey=SPubkey.from_string(str(user_pubkey)),  is_signer=True,  is_writable=True),
+            AccountMeta(pubkey=SPubkey.from_string(str(global_config)),is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(base_mint)),    is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(quote_mint)),   is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(user_base_token_ata)),  is_signer=False, is_writable=True),
+            AccountMeta(pubkey=SPubkey.from_string(str(user_quote_token_ata)), is_signer=False, is_writable=True),
+            AccountMeta(pubkey=SPubkey.from_string(str(pool_base_token_account)), is_signer=False, is_writable=True),
+            AccountMeta(pubkey=SPubkey.from_string(str(pool_quote_token_account)),is_signer=False, is_writable=True),
+            AccountMeta(pubkey=SPubkey.from_string(str(protocol_fee_recipient)),   is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(protocol_fee_recipient_ata)), is_signer=False, is_writable=True),
+            AccountMeta(pubkey=SPubkey.from_string(str(TOKEN_PROGRAM_PUB)), is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(TOKEN_PROGRAM_PUB)), is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(SYSTEM_PROGRAM_ID)), is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(ASSOCIATED_TOKEN)), is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(EVENT_AUTHORITY)), is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(PUMPSWAP_PROGRAM_ID)), is_signer=False, is_writable=False),
+        ]
+
+        ix = Instruction(
+            program_id=SPubkey.from_string(str(PUMPSWAP_PROGRAM_ID)),
+            data=data,
+            accounts=accs
+        )
+        return ix
     
-    def _build_pumpswap_buy_ix(
+    def _build_new_pumpswap_buy_ix(
         self,
         pool_pubkey: Pubkey,
         user_pubkey: Pubkey,
@@ -421,35 +538,38 @@ class PumpSwap:
         self,
         pool_data: dict,
         sell_pct: float,
-        slippage_pct: float, 
-        fee_sol: float,
-        mute: bool = False
+        pool_type: str = NEW_POOL_TYPE,
+        slippage_pct: float = 10, 
+        fee_sol: float = 0.00001,
+        debug_prints: bool = False
     ):
         """
             Args:
                 pool_data: dict
                 sell_pct: float
+                pool_type: str
                 slippage_pct: float
                 fee_sol: float
             Returns:
-                bool: True if successful, False otherwise
+                tuple: (confirmed: bool, tx_sig: str, pool_type: (str)OLD | (str)NEW, (float)mint_amount_we_sold)
         """
         user_pubkey = self.signer.pubkey()
         
         user_base_balance_f = await self._fetch_user_token_balance(str(pool_data['token_base']))
         if user_base_balance_f <= 0:
-            if not mute:
+            if debug_prints:
                 print("No base token balance, can't sell.")
-            return False
+            return (False, None, pool_type)
         
         to_sell_amount_f = user_base_balance_f * (sell_pct / 100.0)
         if to_sell_amount_f <= 0:
-            if not mute:
+            if debug_prints:
                 print("Nothing to sell after applying percentage.")
-            return False
+            return (False, None, pool_type)
 
-        coin_creator  = pool_data["coin_creator"]
-        vault_ata, vault_auth = derive_creator_vault(coin_creator, pool_data['token_quote'])
+        if pool_type == NEW_POOL_TYPE:
+            coin_creator  = pool_data["coin_creator"]
+            vault_ata, vault_auth = derive_creator_vault(coin_creator, pool_data['token_quote'])
 
         decimals_base = pool_data['decimals_base']
         base_amount_in = int(to_sell_amount_f * (10 ** decimals_base))
@@ -463,9 +583,9 @@ class PumpSwap:
         min_sol_out = raw_sol * (1 - slippage_pct/100.0)
         min_quote_amount_out = int(min_sol_out * LAMPORTS_PER_SOL)
         if min_quote_amount_out <= 0:
-            if not mute:
+            if debug_prints:
                 print("min_quote_amount_out <= 0. Slippage too big or no liquidity.")
-            return False
+            return (False, None, pool_type)
         
         lamports_fee = int(fee_sol * LAMPORTS_PER_SOL)
         micro_lamports = compute_unit_price_from_total_fee(
@@ -481,16 +601,26 @@ class PumpSwap:
         if wsol_ata_ix:
             instructions.append(wsol_ata_ix)
         
-        sell_ix = self._build_pumpswap_sell_ix(
-            user_pubkey = user_pubkey,
-            pool_data = pool_data,
-            base_amount_in = base_amount_in,
-            min_quote_amount_out = min_quote_amount_out,
-            protocol_fee_recipient   = PROTOCOL_FEE_RECIP,
-            protocol_fee_recipient_ata = PROTOCOL_FEE_RECIP_ATA,
-            vault_auth = vault_auth,
-            vault_ata = vault_ata,
-        )
+        if pool_type == NEW_POOL_TYPE:
+            sell_ix = self._build_new_pumpswap_sell_ix(
+                user_pubkey = user_pubkey,
+                pool_data = pool_data,
+                base_amount_in = base_amount_in,
+                min_quote_amount_out = min_quote_amount_out,
+                protocol_fee_recipient   = PROTOCOL_FEE_RECIP,
+                protocol_fee_recipient_ata = PROTOCOL_FEE_RECIP_ATA,
+                vault_auth = vault_auth,
+                vault_ata = vault_ata,
+            )
+        else:
+            sell_ix = self._build_old_pumpswap_sell_ix(
+                user_pubkey = user_pubkey,
+                pool_data = pool_data,
+                base_amount_in = base_amount_in,
+                min_quote_amount_out = min_quote_amount_out,
+                protocol_fee_recipient   = PROTOCOL_FEE_RECIP,
+                protocol_fee_recipient_ata = PROTOCOL_FEE_RECIP_ATA,
+            )
         instructions.append(sell_ix)
         
         wsol_ata = get_associated_token_address(user_pubkey, pool_data['token_quote'])
@@ -515,15 +645,15 @@ class PumpSwap:
         
         opts = TxOpts(skip_preflight=True, max_retries=0)
         send_resp = await self.async_client.send_transaction(transaction, opts=opts)
-        if not mute:
+        if debug_prints:
             print(f"Transaction sent: https://solscan.io/tx/{send_resp.value}")
         
         confirmed = await self._await_confirm_transaction(send_resp.value)
-        if not mute:
+        if debug_prints:
             print("Success:", confirmed)
-        return confirmed
+        return (confirmed, send_resp.value, pool_type, min_sol_out)
 
-    def _build_pumpswap_sell_ix(
+    def _build_new_pumpswap_sell_ix(
         self,
         user_pubkey: Pubkey,
         pool_data: dict,
@@ -585,6 +715,72 @@ class PumpSwap:
             AccountMeta(pubkey=SPubkey.from_string(str(PUMPSWAP_PROGRAM_ID)), is_signer=False, is_writable=False),
             AccountMeta(pubkey=SPubkey.from_string(str(vault_ata)), is_signer=False, is_writable=True),
             AccountMeta(pubkey=SPubkey.from_string(str(vault_auth)), is_signer=False, is_writable=True),
+        ]
+
+        return Instruction(
+            program_id=SPubkey.from_string(str(PUMPSWAP_PROGRAM_ID)),
+            data=data,
+            accounts=accs
+        )
+
+    def _build_old_pumpswap_sell_ix(
+        self,
+        user_pubkey: Pubkey,
+        pool_data: dict,
+        base_amount_in: int,
+        min_quote_amount_out: int,
+        protocol_fee_recipient: Pubkey,
+        protocol_fee_recipient_ata: Pubkey
+    ):
+        """
+        Accounts (17 total):
+          #1  Pool
+          #2  User
+          #3  Global Config
+          #4  Base Mint
+          #5  Quote Mint
+          #6  User Base Token Account
+          #7  User Quote Token Account (WSOL ATA)
+          #8  Pool Base Token Account
+          #9  Pool Quote Token Account
+          #10 Protocol Fee Recipient
+          #11 Protocol Fee Recipient Token Account
+          #12 Base Token Program
+          #13 Quote Token Program
+          #14 System Program
+          #15 Associated Token Program
+          #16 Event Authority
+          #17 Program
+
+        Data:
+          sell_discriminator (8 bytes) + struct.pack("<QQ", base_amount_in, min_quote_amount_out)
+        """
+        from solana.transaction import AccountMeta, Instruction
+        from solders.pubkey import Pubkey as SPubkey # type: ignore
+        import struct
+
+        data = SELL_INSTR_DISCRIM + struct.pack("<QQ", base_amount_in, min_quote_amount_out)
+
+        accs = [
+            AccountMeta(pubkey=SPubkey.from_string(str(pool_data["pool_pubkey"])),  is_signer=False, is_writable=True),
+            AccountMeta(pubkey=SPubkey.from_string(str(user_pubkey)),  is_signer=True,  is_writable=True),
+            AccountMeta(pubkey=SPubkey.from_string(str(GLOBAL_CONFIG_PUB)),is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(pool_data["token_base"])), is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(pool_data["token_quote"])), is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(get_associated_token_address(user_pubkey, pool_data["token_base"]))),
+                        is_signer=False, is_writable=True),
+            AccountMeta(pubkey=SPubkey.from_string(str(get_associated_token_address(user_pubkey, pool_data["token_quote"]))),
+                        is_signer=False, is_writable=True),
+            AccountMeta(pubkey=SPubkey.from_string(str(pool_data["pool_base_token_account"])),  is_signer=False, is_writable=True),
+            AccountMeta(pubkey=SPubkey.from_string(str(pool_data["pool_quote_token_account"])), is_signer=False, is_writable=True),
+            AccountMeta(pubkey=SPubkey.from_string(str(protocol_fee_recipient)), is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(protocol_fee_recipient_ata)), is_signer=False, is_writable=True),
+            AccountMeta(pubkey=SPubkey.from_string(str(TOKEN_PROGRAM_PUB)), is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(TOKEN_PROGRAM_PUB)), is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(SYSTEM_PROGRAM_ID)), is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(ASSOCIATED_TOKEN)), is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(EVENT_AUTHORITY)), is_signer=False, is_writable=False),
+            AccountMeta(pubkey=SPubkey.from_string(str(PUMPSWAP_PROGRAM_ID)), is_signer=False, is_writable=False),
         ]
 
         return Instruction(
@@ -682,7 +878,7 @@ class PumpSwap:
         decimals_base: int = 6,
         index: int = 0,
         fee_sol: float = 0.0005,
-        mute              : bool = False,
+        debug_prints: bool = False,
     ) -> bool:
         """
         Initialise a brand‑new PumpSwap pool (a.k.a. “Add Liquidity” on pump.fun).
@@ -796,19 +992,19 @@ class PumpSwap:
             recent_blockhash=bh.value.blockhash,
         )
         tx = VersionedTransaction(msg, [self.signer])
-        ok_sim = await self._simulate_and_show(tx, mute)
+        ok_sim = await self._simulate_and_show(tx, debug_prints)
         if not ok_sim:
             return False   # bail early – no fee wasted
         sig = (await self.async_client.send_transaction(
             tx, opts=TxOpts(skip_preflight=True, max_retries=0)
         )).value
 
-        if not mute:
+        if debug_prints:
             print(f"Tx submitted: https://solscan.io/tx/{sig}")
 
         ok = await self._await_confirm_transaction(sig)
 
-        if not mute:
+        if debug_prints:
             print("Success:", ok)
 
         return str(pool_pda) if ok else None
@@ -868,7 +1064,7 @@ class PumpSwap:
         pool_data: dict,
         withdraw_pct: float,          # 100 = max
         fee_sol: float = 0.0003,
-        mute              : bool = False,
+        debug_prints: bool = False,
     ):
         """
             Withdraw deposited liquidity from a PumpSwap pool (creating a pool counts as deposit).
@@ -880,7 +1076,7 @@ class PumpSwap:
 
         lp_balance_f = await self._fetch_user_token_balance(str(lp_mint))
         if not lp_balance_f or lp_balance_f == 0:
-            if not mute:
+            if debug_prints:
                 print("No LP tokens, nothing to withdraw")
             return False
 
@@ -941,18 +1137,18 @@ class PumpSwap:
             recent_blockhash=blockhash,
         )
         tx         = VersionedTransaction(msg, [self.signer])
-        if not await self._simulate_and_show(tx, mute): return False
+        if not await self._simulate_and_show(tx, debug_prints): return False
 
         sig = (await self.async_client.send_transaction(
             tx, opts=TxOpts(skip_preflight=True, max_retries=0)
         )).value
 
-        if not mute:
+        if debug_prints:
             print("Tx:", sig)
 
         ok  = await self._await_confirm_transaction(sig)
 
-        if not mute:
+        if debug_prints:
             print("Success:", ok)
 
         return ok
@@ -1014,7 +1210,7 @@ class PumpSwap:
         slippage_pct      : float = 1.0,
         fee_sol           : float = 0.0003,
         sol_cap           : float | None = None,
-        mute              : bool = False,
+        debug_prints      : bool = False,
     ):
         """
             Deposit tokens into a PumpSwap pool.
@@ -1034,7 +1230,7 @@ class PumpSwap:
                             Pubkey.from_string(pool_data["pool_quote_token_account"])
                             )).value.amount)
         if base_res_raw == 0 or quote_res_raw == 0:
-            if not mute:
+            if debug_prints:
                 print("Pool reserves are zero – can’t deposit proportionally.")
             return False
 
@@ -1043,7 +1239,7 @@ class PumpSwap:
         if sol_cap is not None:
             cap_lamports = int(sol_cap * LAMPORTS_PER_SOL)
             if quote_needed_lamports > cap_lamports:
-                if not mute:
+                if debug_prints:
                     print(
                     f"Deposit aborted: would need {quote_needed_lamports/1e9:.6f} SOL "
                     f"but cap is {sol_cap:.6f} SOL."
@@ -1067,13 +1263,13 @@ class PumpSwap:
             ui_bal_resp.value[0].account.data.parsed["info"]["tokenAmount"]["amount"]
         ) if ui_bal_resp.value else 0
         if have_base_raw < base_in_raw:
-            if not mute:
+            if debug_prints:
                 print("Not enough base tokens in wallet.")
             return False
         # SOL balance
         sol_balance = (await self.async_client.get_balance(user)).value
         if sol_balance < quote_needed_lamports + int(0.002 * LAMPORTS_PER_SOL):
-            if not mute:
+            if debug_prints:
                 print("Not enough SOL to wrap.")
             return False
 
@@ -1134,15 +1330,15 @@ class PumpSwap:
                                     recent_blockhash=bh)
         tx  = VersionedTransaction(msg, [self.signer])
 
-        if not await self._simulate_and_show(tx, mute):
+        if not await self._simulate_and_show(tx, debug_prints):
             return False
         sig = (await self.async_client.send_transaction(
             tx, opts=TxOpts(skip_preflight=True, max_retries=0)
         )).value
-        if not mute:
+        if debug_prints:
             print("Tx:", sig)
         ok  = await self._await_confirm_transaction(sig)
-        if not mute:
+        if debug_prints:
             print("Success:", ok)
         return ok
 
@@ -1158,12 +1354,12 @@ class PumpSwap:
         ]
         return Pubkey.find_program_address(seed, PUMPSWAP_PROGRAM_ID)[0]
 
-    async def _simulate_and_show(self, tx: VersionedTransaction, mute: bool = False):
+    async def _simulate_and_show(self, tx: VersionedTransaction, debug_prints: bool = False):
         sim = await self.async_client.simulate_transaction(
             tx, sig_verify=False, commitment=Processed,
 
         )
-        if not mute:
+        if debug_prints:
             if sim.value.err:
                 print("── Simulation failed ──────────────────────────────────────────")
             else:
